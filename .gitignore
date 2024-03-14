@@ -1,0 +1,13 @@
+备用和弃用实验/
+bert-base-uncased/
+runs/
+.idea/
+logs/
+classificationMap/
+GroundTruth/
+discard_code/
+baseline+domain_classifier【放弃】/
+baseline+domain_classifier+mixup【放弃】/
+__pycache__/
+*.png
+*.pdf

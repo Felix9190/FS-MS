@@ -1,0 +1,15 @@
+CH
+{0: "water", 1: "bare-soil-school", 2: "bare-soil-park", 3: "bare-soil-farmland", 4: "natural-plants", 5: "weeds-in-farmland", 6: "forest", 7: "grass", 8: "rice-field-grown", 9: "rice-field-first-stage",10: "row-crops", 11: "plastic-house", 12: "manmade-non-dark", 13: "manmade-dark", 14: "manmade-blue", 15: "manmade-red", 16: "manmade-grass", 17: "asphalt"}
+["water", "bare-soil-school", "bare-soil-park", "bare-soil-farmland", "natural-plants", "weeds-in-farmland", "forest", "grass", "rice-field-grown", "rice-field-first-stage", "row-crops", "plastic-house", "manmade-non-dark", "manmade-dark", "manmade-blue", "manmade-red", "manmade-grass", "asphalt"]
+
+UP
+{0: "Asphalt", 1: "Meadows", 2: "Gravel", 3: "Trees", 4: "Painted-metal-sheets", 5: "Bare-Soil", 6: "Bitumen", 7: "Self-Blocking-Bricks", 8: "Shadows"}
+["Asphalt", "Meadows", "Gravel", "Trees", "Painted-metal-sheets", "Bare-Soil", "Bitumen", "Self-Blocking-Bricks", "Shadows"]
+
+IP
+{0: "Alfalfa", 1: "Corn-notill", 2: "Corn-mintill", 3: "Corn", 4: "Grass-pasture", 5: "Grass-trees", 6: "Grass-pasture-mowed", 7: "Hay-windrowed", 8: "Oats", 9: "Soybean-notill",10: "Soybean-mintill", 11: "Soybean-clean", 12: "Wheat", 13: "Woods", 14: "Buildings-Grass-Trees-Drives", 15: "Stone-Steel-Towers"}
+["Alfalfa", "Corn-notill", "Corn-mintill", "Corn", "Grass-pasture", "Grass-trees", "Grass-pasture-mowed", "Hay-windrowed", "Oats", "Soybean-notill", "Soybean-mintill", "Soybean-clean", "Wheat", "Woods", "Buildings-Grass-Trees-Drives", "Stone-Steel-Towers"]
+
+Salinas
+{0: "Brocoli_green_weeds_1", 1: "Brocoli_green_weeds_2", 2: "Fallow", 3: "Fallow_rough_plow", 4: "Fallow_smooth", 5: "Stubble", 6: "Celery", 7: "Grapes_untrained", 8: "Soil_vinyard_develop", 9: "Corn_senesced_green_weeds",10: "Lettuce_romaine_4wk", 11: "Lettuce_romaine_5wk", 12: "Lettuce_romaine_6wk", 13: "Lettuce_romaine_7wk" , 14: "Vinyard_untrained", 15: "Vinyard_vertical_trellis"}
+["Brocoli_green_weeds_1", "Brocoli_green_weeds_2", "Fallow", "Fallow_rough_plow", "Fallow_smooth", "Stubble", "Celery", "Grapes_untrained", "Soil_vinyard_develop", "Corn_senesced_green_weeds","Lettuce_romaine_4wk", "Lettuce_romaine_5wk", "Lettuce_romaine_6wk", "Lettuce_romaine_7wk" , "Vinyard_untrained", "Vinyard_vertical_trellis"]
