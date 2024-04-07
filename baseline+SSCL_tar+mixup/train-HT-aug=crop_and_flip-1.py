@@ -18,14 +18,14 @@ from model.mapping import Mapping
 from model.encoder import Encoder
 from model.SimSiam_block import SimSiam
 from model.classifier import C_F_Classifier
-from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset, tagetSSLDataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
+from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset_houston, tagetSSLDataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
 from utils import utils, encode_class_label, loss_function, data_augment
 
 from practice import t_sne
 
 
 parser = argparse.ArgumentParser(description="Few Shot Visual Recognition")
-parser.add_argument('--config', type=str, default=os.path.join( './config', 'salinas.py'))
+parser.add_argument('--config', type=str, default=os.path.join( './config', 'houston.py'))
 args = parser.parse_args()
 
 # 加载超参数
@@ -36,7 +36,9 @@ data_path = config['data_path']
 save_path = config['save_path']
 source_data = config['source_data']
 target_data = config['target_data']
-target_data_gt = config['target_data_gt']
+# target_data_gt = config['target_data_gt']
+target_data_gt_train = config['target_data_gt_train']
+target_data_gt_test = config['target_data_gt_test']
 log_dir = config['log_dir']
 patch_size = train_opt['patch_size']
 batch_task = train_opt['batch_task']
@@ -54,7 +56,7 @@ LEARNING_RATE = train_opt['lr']
 lambda_1 = train_opt['lambda_1']
 GPU = config['gpu']
 TAR_CLASS_NUM = train_opt['tar_class_num'] # the number of class
-TAR_LSAMPLE_NUM_PER_CLASS = train_opt['tar_lsample_num_per_class'] # the number of labeled samples per class
+TAR_LSAMPLE_NUM_PER_CLASS = 1 # the number of labeled samples per class
 # hid_units = train_opt['hid_units']
 HIDDEN_CHANNELS = train_opt['hidden_channels']
 WEIGHT_DECAY = train_opt['weight_decay']
@@ -97,8 +99,10 @@ for class_ in metatrain_data: # 200 * 18 = 3600
 
 # 加载目标域数据
 test_data = os.path.join(data_path,target_data)
-test_label = os.path.join(data_path,target_data_gt)
-Data_Band_Scaler, GroundTruth = utils.load_data(test_data, test_label)
+test_label_train = os.path.join(data_path,target_data_gt_train)
+test_label_test = os.path.join(data_path,target_data_gt_test)
+# Data_Band_Scaler, GroundTruth = utils.load_data(test_data, test_label)
+Data_Band_Scaler, GroundTruth_train,  GroundTruth_test = utils.load_data_houston(test_data, test_label_train, test_label_test)
 
 # 损失初始化
 crossEntropy = nn.CrossEntropyLoss().to(GPU)
@@ -114,7 +118,7 @@ k = np.zeros([nDataSet, 1]) # Kappa
 best_predict_all = [] # 最好的预测结果，存什么
 best_G, best_RandPerm, best_Row, best_Column, best_nTrain = None,None,None,None,None
 
-seeds = [1214, 1216, 1220, 1223, 1228, 1237, 1240, 1332, 1334, 1337] # SA：top 10 from 40
+seeds = [1222, 1230, 1333, 1337, 1339, 1231, 1233, 1234, 1212, 1213] # HT
 
 # 日志设置
 experimentSetting = '{}way_{}shot_{}'.format(TAR_CLASS_NUM, TAR_LSAMPLE_NUM_PER_CLASS, target_data.split('/')[0])
@@ -137,21 +141,14 @@ for iDataSet in range(nDataSet) :
     # source_data_loader = get_metatrain_Labeled_data_loader(src_metatrain_data, src_metatrain_label)
 
     #  load target domain data for training and testing
-    # train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain = get_target_dataset(Data_Band_Scaler=Data_Band_Scaler,
-    #                                                                                                           GroundTruth=GroundTruth,
-    #                                                                                                           class_num=TAR_CLASS_NUM,
-    #                                                                                                           tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-    #                                                                                                           shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-    #                                                                                                           patch_size=patch_size)
-    #  load target domain data for training and testing
-    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain, target_aug_data_ssl, target_aug_label_ssl = get_target_dataset(
+    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain, target_aug_data_ssl, target_aug_label_ssl = get_target_dataset_houston(
         Data_Band_Scaler=Data_Band_Scaler,
-        GroundTruth=GroundTruth,
+        GroundTruth_train=GroundTruth_train,
+        GroundTruth_test=GroundTruth_test,
         class_num=TAR_CLASS_NUM,
         tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
         shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
         patch_size=patch_size)
-
 
     # target SSL data
     target_ssl_dataset = tagetSSLDataset(target_aug_data_ssl)
@@ -409,7 +406,7 @@ for iDataSet in range(nDataSet) :
     logger.info("accuracy list: {}".format(acc))
     logger.info('***********************************************************************************')
     for i in range(len(best_predict_all)):
-        best_G[best_Row[best_RandPerm[best_nTrain + i]]][best_Column[best_RandPerm[best_nTrain + i]]] = best_predict_all[i] + 1
+        best_G[best_Row[best_RandPerm[i]]][best_Column[best_RandPerm[i]]] = best_predict_all[i] + 1
 
 OAMean = np.mean(acc)
 OAStd = np.std(acc)

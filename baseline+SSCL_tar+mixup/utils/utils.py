@@ -244,6 +244,24 @@ def load_data(image_file, label_file):
 
     return Data_Band_Scaler, GroundTruth
 
+def load_data_hanchuan(image_file, label_file):
+    image_data = sio.loadmat(image_file)
+    label_data = sio.loadmat(label_file)
+
+    data_key = image_file.split('/')[-1].split('.')[0] # paviaU
+    label_key = label_file.split('/')[-1].split('.')[0] # paviaU_gt
+    data_all = image_data[data_key] # dic-> narray , UP:ndarray(610,340,103)
+    GroundTruth = label_data['WHU_Hi_HanChuan_gt'] # (610, 340)
+
+    [nRow, nColumn, nBand] = data_all.shape
+    print(data_key, nRow, nColumn, nBand)
+
+    data = data_all.reshape(np.prod(data_all.shape[:2]), np.prod(data_all.shape[2:])) # (207400,103)
+    data_scaler = preprocessing.scale(data.astype(float))  # (X-X_mean)/X_std,对列进行标准化，即对所有样本光谱的每一个波段标准化
+    Data_Band_Scaler = data_scaler.reshape(data_all.shape[0], data_all.shape[1],data_all.shape[2]) # 标准化之后再变回去
+
+    return Data_Band_Scaler, GroundTruth
+
 def load_data_houston(image_file, label_file,label_file1):
     image_data = sio.loadmat(image_file)
     label_data = sio.loadmat(label_file)

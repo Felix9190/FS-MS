@@ -1,0 +1,7 @@
+[2024-04-07 11:18:48,742] [INFO] train time per DataSet(s): 1307.07334
+[2024-04-07 11:18:48,742] [INFO] test time per DataSet(s): 1.22472
+
+FLOPs: 28702504.00
+Params: 196056.00
+FLOPs: 28.70 M
+Params: 0.20 M

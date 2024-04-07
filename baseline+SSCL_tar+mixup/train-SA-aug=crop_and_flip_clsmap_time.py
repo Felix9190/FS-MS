@@ -107,7 +107,7 @@ cos_criterion = nn.CosineSimilarity(dim=1).to(GPU)
 infoNCE_Loss = loss_function.ContrastiveLoss(batch_size = TAR_CLASS_NUM).to(GPU)
 
 # 实验结果指标
-nDataSet = 10
+nDataSet = 1
 acc = np.zeros([nDataSet, 1]) # 每轮的准确率
 A = np.zeros([nDataSet, TAR_CLASS_NUM]) # 每轮每类的准确率
 k = np.zeros([nDataSet, 1]) # Kappa
@@ -292,6 +292,19 @@ for iDataSet in range(nDataSet) :
         # 错啦，这个是两组向量，所有两两组合的相似度。
         # cl_loss_tar = -(utils.euclidean_metric(p1, z2).mean() + utils.euclidean_metric(p2, z1).mean()) * 0.5
 
+        # # 计算模型运算量和计算量【重要】计算flops和params的时候把feature_encoder中mapping默认改成target！计算完改回默认值为source【发现】不用改了，thop.profile可以直接把参数输入
+        # print("-----------------------------------------------------------------")
+        # from thop import profile
+        # flops1, params1 = profile(mapping_tar, inputs=(support_tar.to(GPU),)) # profile的inputs只有一个参数时候要加逗号，否则报错
+        # flops2, params2 = profile(encoder, inputs=(mapping_tar(support_tar.to(GPU)),))
+        # flops3, params3 = profile(cl_tar, inputs=(features_augment[:len(target_ssl_data), :], features_augment[len(target_ssl_data):, :]))
+        #
+        # print('FLOPs: %.2f' % ((flops1 / len(support_tar) + flops2 / len(support_tar) + flops3 / len(target_ssl_data))))
+        # print('Params: %.2f' % ((params1 + params2 + params3)))
+        # print('FLOPs: %.2f M' % ((flops1 / len(support_tar) + flops2 / len(support_tar)) / 1e6 + + flops3 / len(target_ssl_data) / 1e6))
+        # print('Params: %.2f M' % ((params1 + params2 + params3) / 1e6))
+        # print("====================================================================")
+
         loss = f_loss + cl_loss_tar + mixup_loss
 
         # 原始SimSiam  高斯噪声表现贼差，辐射噪声就还好！
@@ -434,6 +447,53 @@ logger.info ("accuracy for each class: ")
 for i in range(TAR_CLASS_NUM):
     logger.info ("Class " + str(i) + ": " + "{:.2f}".format(100 * AMean[i]) + " +- " + "{:.2f}".format(100 * AStd[i]))
 
+#################classification map################################
+
+# G一直是GT值，所以best_G也是预测值，需要重新赋值成预测的结果
+for i in range(len(best_predict_all)):  # 12197
+    best_G[best_Row[best_RandPerm[best_nTrain + i]]][best_Column[best_RandPerm[best_nTrain + i]]] = best_predict_all[i] + 1
+
+hsi_pic = np.zeros((best_G.shape[0], best_G.shape[1], 3))
+for i in range(best_G.shape[0]):
+    for j in range(best_G.shape[1]):
+        if best_G[i][j] == 0:
+            hsi_pic[i, j, :] = [0, 0, 0]
+        if best_G[i][j] == 1:
+            hsi_pic[i, j, :] = [0, 0, 1]
+        if best_G[i][j] == 2:
+            hsi_pic[i, j, :] = [0, 1, 0]
+        if best_G[i][j] == 3:
+            hsi_pic[i, j, :] = [0, 1, 1]
+        if best_G[i][j] == 4:
+            hsi_pic[i, j, :] = [1, 0, 0]
+        if best_G[i][j] == 5:
+            hsi_pic[i, j, :] = [1, 0, 1]
+        if best_G[i][j] == 6:
+            hsi_pic[i, j, :] = [1, 1, 0]
+        if best_G[i][j] == 7:
+            hsi_pic[i, j, :] = [0.5, 0.5, 1]
+        if best_G[i][j] == 8:
+            hsi_pic[i, j, :] = [0.65, 0.35, 1]
+        if best_G[i][j] == 9:
+            hsi_pic[i, j, :] = [0.75, 0.5, 0.75]
+        if best_G[i][j] == 10:
+            hsi_pic[i, j, :] = [0.75, 1, 0.5]
+        if best_G[i][j] == 11:
+            hsi_pic[i, j, :] = [0.5, 1, 0.65]
+        if best_G[i][j] == 12:
+            hsi_pic[i, j, :] = [0.65, 0.65, 0]
+        if best_G[i][j] == 13:
+            hsi_pic[i, j, :] = [0.75, 1, 0.65]
+        if best_G[i][j] == 14:
+            hsi_pic[i, j, :] = [0, 0, 0.5]
+        if best_G[i][j] == 15:
+            hsi_pic[i, j, :] = [0, 1, 0.75]
+        if best_G[i][j] == 16:
+            hsi_pic[i, j, :] = [0.5, 0.75, 1]
+
+# 4 指的是halfwidth
+halfwidth = patch_size // 2
+utils.classification_map(hsi_pic[halfwidth:-halfwidth, halfwidth:-halfwidth, :], best_G[halfwidth:-halfwidth, halfwidth:-halfwidth], 24,  "classificationMap/SA_{}shot.png".format(TAR_LSAMPLE_NUM_PER_CLASS))
 
 
 

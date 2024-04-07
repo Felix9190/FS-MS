@@ -25,7 +25,7 @@ from practice import t_sne
 
 
 parser = argparse.ArgumentParser(description="Few Shot Visual Recognition")
-parser.add_argument('--config', type=str, default=os.path.join( './config', 'salinas.py'))
+parser.add_argument('--config', type=str, default=os.path.join( './config', 'longkou.py'))
 args = parser.parse_args()
 
 # 加载超参数
@@ -114,7 +114,8 @@ k = np.zeros([nDataSet, 1]) # Kappa
 best_predict_all = [] # 最好的预测结果，存什么
 best_G, best_RandPerm, best_Row, best_Column, best_nTrain = None,None,None,None,None
 
-seeds = [1214, 1216, 1220, 1223, 1228, 1237, 1240, 1332, 1334, 1337] # SA：top 10 from 40
+seeds = [1336, 1227, 1228, 1233, 1231, 1236, 1226, 1235, 1337, 1224] # LK, same as HC, UP
+# seeds = [1231]
 
 # 日志设置
 experimentSetting = '{}way_{}shot_{}'.format(TAR_CLASS_NUM, TAR_LSAMPLE_NUM_PER_CLASS, target_data.split('/')[0])
