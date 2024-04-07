@@ -9,5 +9,7 @@ discard_code/
 baseline+domain_classifier【放弃】/
 baseline+domain_classifier+mixup【放弃】/
 __pycache__/
+dicard/
+
 *.png
 *.pdf
