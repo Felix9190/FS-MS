@@ -21,7 +21,8 @@ from model.classifier import C_F_Classifier
 from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset_houston, tagetSSLDataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
 from utils import utils, encode_class_label, loss_function, data_augment
 
-from practice import t_sne
+# from practice import t_sne
+from sklearn.manifold import TSNE
 
 
 parser = argparse.ArgumentParser(description="Few Shot Visual Recognition")
@@ -118,7 +119,8 @@ k = np.zeros([nDataSet, 1]) # Kappa
 best_predict_all = [] # 最好的预测结果，存什么
 best_G, best_RandPerm, best_Row, best_Column, best_nTrain = None,None,None,None,None
 
-seeds = [1222, 1230, 1333, 1337, 1339, 1231, 1233, 1234, 1212, 1213] # HT
+# seeds = [1222, 1230, 1333, 1337, 1339, 1231, 1233, 1234, 1212, 1213] # HT
+seeds = [1222] # HT best 1339， clsmap use 1222
 
 # 日志设置
 experimentSetting = '{}way_{}shot_{}'.format(TAR_CLASS_NUM, TAR_LSAMPLE_NUM_PER_CLASS, target_data.split('/')[0])
@@ -209,6 +211,10 @@ for iDataSet in range(nDataSet) :
     total_hit_src, total_num_src, total_hit_tar, total_num_tar, acc_src, acc_tar = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     # 粗糙类和精细类
     # total_hit_c, total_num_c, total_hit_f, total_num_f, acc_c, acc_f = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+    # all test datas and labels for t-SNE
+    data_embed_collect = []
+    best_data_embed_collect = []
 
     train_start = time.time()
     writer = SummaryWriter()
@@ -378,6 +384,10 @@ for iDataSet in range(nDataSet) :
                     batch_size = test_labels.shape[0]
 
                     test_features = encoder(mapping_tar((Variable(test_datas).to(GPU))))
+
+                    # all test datas and labels for t-SNE
+                    data_embed_collect.append(test_features)
+
                     test_features = (test_features - min_value) * 1.0 / (max_value - min_value)
                     predict_labels = KNN_classifier.predict(test_features.cpu().detach().numpy())
                     test_labels = test_labels.numpy()
@@ -411,6 +421,9 @@ for iDataSet in range(nDataSet) :
                     best_predict_all = predict
                     best_G, best_RandPerm, best_Row, best_Column, best_nTrain = G, RandPerm, Row, Column, nTrain
                     k[iDataSet] = metrics.cohen_kappa_score(labels, predict)
+                    # OA最好时候的特征集合，用于t-SNE展示
+                    best_data_embed_collect = data_embed_collect
+                data_embed_collect = []
 
                 logger.info('best episode:[{}], best accuracy={}'.format(best_episode + 1, last_accuracy))
 
@@ -490,7 +503,19 @@ for i in range(best_G.shape[0]):
 halfwidth = patch_size // 2
 utils.classification_map(hsi_pic[halfwidth:-halfwidth, halfwidth:-halfwidth, :], best_G[halfwidth:-halfwidth, halfwidth:-halfwidth], 24,  "classificationMap/houston_{}shot.png".format(TAR_LSAMPLE_NUM_PER_CLASS))
 
+# t-SNE
+best_data_embed_collect_npy = torch.cat(best_data_embed_collect, axis = 0).cpu().detach().numpy()
+n_samples, n_features = best_data_embed_collect_npy.shape
+# 调用t-SNE对高维的data进行降维，得到的2维的result_2D，shape=(samples,2)
+tsne_2D = TSNE(n_components=2, init='pca', random_state=0)
+result_2D = tsne_2D.fit_transform(best_data_embed_collect_npy)
+color_map = ['darkgray', 'lightcoral', 'salmon', 'peru', 'orange', 'gold', 'yellowgreen', 'darkseagreen',
+             'mediumaquamarine', 'skyblue', 'powderblue', 'thistle', 'plum', 'pink', 'darkgoldenrod']  # 15个类，准备15种颜色
+fig = utils.plot_embedding_2D(result_2D, labels, 'HT', color_map)
+fig.savefig("tsne/SNE_HT.png")
+fig.savefig("tsne/SNE_HT.pdf")
 
+print("OK")
 
 
 

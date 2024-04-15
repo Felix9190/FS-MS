@@ -18,14 +18,14 @@ from model.mapping import Mapping
 from model.encoder import Encoder
 from model.SimSiam_block import SimSiam
 from model.classifier import C_F_Classifier
-from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
+from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset, tagetSSLDataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
 from utils import utils, encode_class_label, loss_function, data_augment
 
 from practice import t_sne
 
 
 parser = argparse.ArgumentParser(description="Few Shot Visual Recognition")
-parser.add_argument('--config', type=str, default=os.path.join( './config', 'salinas.py'))
+parser.add_argument('--config', type=str, default=os.path.join( './config', 'longkou.py'))
 args = parser.parse_args()
 
 # 加载超参数
@@ -102,7 +102,7 @@ Data_Band_Scaler, GroundTruth = utils.load_data(test_data, test_label)
 
 # 损失初始化
 crossEntropy = nn.CrossEntropyLoss().to(GPU)
-# cos_criterion = nn.CosineSimilarity(dim=1).to(GPU)
+cos_criterion = nn.CosineSimilarity(dim=1).to(GPU)
 
 infoNCE_Loss = loss_function.ContrastiveLoss(batch_size = TAR_CLASS_NUM).to(GPU)
 
@@ -114,17 +114,7 @@ k = np.zeros([nDataSet, 1]) # Kappa
 best_predict_all = [] # 最好的预测结果，存什么
 best_G, best_RandPerm, best_Row, best_Column, best_nTrain = None,None,None,None,None
 
-# 原始 1220这种子在哪个模型表现基本都不好！彭老师RPCL : 1220 -> 1231, 重复 1233。
-# seeds = [1336, 1330, 1220, 1233, 1229, 1236, 1226, 1235, 1337, 1224] # 每轮的随机种子（同李伟）
-# seeds = [1336, 1227, 1228, 1233, 1231, 1236, 1226, 1235, 1337, 1224] # 新种子
-
-# seeds = [1211, 1212, 1213, 1214, 1215, 1216, 1217, 1218, 1219, 1220,
-#          1221, 1222, 1223, 1224, 1225, 1226, 1227, 1228, 1229, 1230,
-#          1231, 1232, 1233, 1234, 1235, 1236, 1237, 1238, 1239, 1240]
-
-seeds = [1236, 1237, 1226, 1227, 1211, 1212, 1216, 1240, 1222, 1223] #IP_final OA=
-
-# seeds = [1214, 1216, 1220, 1223, 1228, 1237, 1240, 1332, 1334, 1337] # top 10 from 40  OA=93.11
+seeds = [1336, 1227, 1228, 1233, 1231, 1236, 1226, 1235, 1337, 1224] # LK, same as HC, UP
 
 # 日志设置
 experimentSetting = '{}way_{}shot_{}'.format(TAR_CLASS_NUM, TAR_LSAMPLE_NUM_PER_CLASS, target_data.split('/')[0])
@@ -147,12 +137,26 @@ for iDataSet in range(nDataSet) :
     # source_data_loader = get_metatrain_Labeled_data_loader(src_metatrain_data, src_metatrain_label)
 
     #  load target domain data for training and testing
-    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column,nTrain = get_target_dataset(Data_Band_Scaler=Data_Band_Scaler,
-                                                                                                              GroundTruth=GroundTruth,
-                                                                                                              class_num=TAR_CLASS_NUM,
-                                                                                                              tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-                                                                                                              shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-                                                                                                              patch_size=patch_size)
+    # train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain = get_target_dataset(Data_Band_Scaler=Data_Band_Scaler,
+    #                                                                                                           GroundTruth=GroundTruth,
+    #                                                                                                           class_num=TAR_CLASS_NUM,
+    #                                                                                                           tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
+    #                                                                                                           shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
+    #                                                                                                           patch_size=patch_size)
+    #  load target domain data for training and testing
+    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain, target_aug_data_ssl, target_aug_label_ssl = get_target_dataset(
+        Data_Band_Scaler=Data_Band_Scaler,
+        GroundTruth=GroundTruth,
+        class_num=TAR_CLASS_NUM,
+        tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
+        shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
+        patch_size=patch_size)
+
+
+    # target SSL data
+    target_ssl_dataset = tagetSSLDataset(target_aug_data_ssl)
+    target_ssl_dataloader = torch.utils.data.DataLoader(target_ssl_dataset, batch_size=128, shuffle=True, drop_last=True)
+
     num_supports, num_samples, query_edge_mask, evaluation_mask = utils.preprocess(TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, QUERY_NUM_PER_CLASS, batch_task, GPU)
 
     '''
@@ -212,11 +216,9 @@ for iDataSet in range(nDataSet) :
     train_start = time.time()
     writer = SummaryWriter()
 
-    # source_iter = iter(source_data_loader)
+    target_ssl_iter = iter(target_ssl_dataloader)
 
     for episode in range(EPISODE) :
-        # print("episode = ", episode)
-        # Source and Target Few-Shot
         task_src = Task(metatrain_data, TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, QUERY_NUM_PER_CLASS)
         support_dataloader_src = get_HBKC_data_loader(task_src, num_per_class=SHOT_NUM_PER_CLASS, split="train", shuffle=False)
         query_dataloader_src = get_HBKC_data_loader(task_src, num_per_class=QUERY_NUM_PER_CLASS, split="test", shuffle=False)
@@ -256,16 +258,25 @@ for iDataSet in range(nDataSet) :
         # loss = f_loss
 
         # CL_tar
-        data_cl_tar = torch.cat((support_tar, query_tar), dim=0) # (num_classes * num_supports + num_classes * num_querys, 128, 7, 7)
-        num_data_cl_tar = len(data_cl_tar) # num_classes * num_supports + num_classes * num_querys
-        # train_cl = metatrain_data_loader_src.__iter__().next()  # (256, 128, 9, 9)
-        augment1 = torch.FloatTensor(data_augment.Crop_and_resize_batch(data_cl_tar.data.cpu(), patch_size // 2))
-        augment2 = torch.FloatTensor(data_augment.Crop_and_resize_batch(data_cl_tar.data.cpu(), patch_size // 2))
+        # episode batchsize 过大
+        # data_cl_tar = torch.cat((support_tar, query_tar), dim=0) # (num_classes * num_supports + num_classes * num_querys, 128, 7, 7)
+        # num_data_cl_tar = len(data_cl_tar) # num_classes * num_supports + num_classes * num_querys
+
+        # 目标域自监督：从目标域有标记数据的增强集合中取值。
+        try:
+            target_ssl_data = target_ssl_iter.next() # (batchsize, channels, 7, 7)
+        except Exception as err:
+            target_ssl_iter = iter(target_ssl_dataloader)
+            target_ssl_data = target_ssl_iter.next()
+
+        augment1 = torch.FloatTensor(data_augment.random_flip(data_augment.Crop_and_resize_batch(target_ssl_data.data.cpu(), patch_size // 2))) # 可以再加个翻转啥的
+        augment2 = torch.FloatTensor(data_augment.random_flip(data_augment.Crop_and_resize_batch(target_ssl_data.data.cpu(), patch_size // 2)))
         augment = torch.cat((augment1, augment2), dim=0)
         features_augment = encoder(mapping_tar(augment.to(GPU)))
-        p1, p2, z1, z2 = cl_tar(features_augment[:num_data_cl_tar, :], features_augment[num_data_cl_tar:, :])
+        p1, p2, z1, z2 = cl_tar(features_augment[:len(target_ssl_data), :], features_augment[len(target_ssl_data):, :])
         cl_loss_tar = (torch.norm(p1 - z2, dim=1).mean() + torch.norm(p2 - z1, dim=1).mean()) * 0.5 # 默认2范数
-        # cl_loss_tar = -(utils.euclidean_metric(p1, z2).mean() + utils.euclidean_metric(p2, z1).mean()) * 0.5 # 错啦，这个是两组向量，所有两两组合的相似度。
+        # 错啦，这个是两组向量，所有两两组合的相似度。
+        # cl_loss_tar = -(utils.euclidean_metric(p1, z2).mean() + utils.euclidean_metric(p2, z1).mean()) * 0.5
 
         loss = f_loss + 1.0 * cl_loss_tar
 

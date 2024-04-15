@@ -16,16 +16,16 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model.mapping import Mapping
 from model.encoder import Encoder
-from model.SimSiam_block import SimSiam
+from model.SimSiam_block_old import SimSiam
 from model.classifier import C_F_Classifier
-from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset, tagetSSLDataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
-from utils import utils, encode_class_label, loss_function, data_augment
+from utils.dataloader import get_HBKC_data_loader, Task, get_target_dataset_houston, get_target_dataset, getMetaTrainLabeledDataset, get_metatrain_Labeled_data_loader
+from utils import utils, encode_class_label, loss_function
 
 from practice import t_sne
 
 
 parser = argparse.ArgumentParser(description="Few Shot Visual Recognition")
-parser.add_argument('--config', type=str, default=os.path.join( './config', 'salinas.py'))
+parser.add_argument('--config', type=str, default=os.path.join('../config', 'houston.py'))
 args = parser.parse_args()
 
 # 加载超参数
@@ -36,7 +36,9 @@ data_path = config['data_path']
 save_path = config['save_path']
 source_data = config['source_data']
 target_data = config['target_data']
-target_data_gt = config['target_data_gt']
+# target_data_gt = config['target_data_gt']
+target_data_gt_train = config['target_data_gt_train']
+target_data_gt_test = config['target_data_gt_test']
 log_dir = config['log_dir']
 patch_size = train_opt['patch_size']
 batch_task = train_opt['batch_task']
@@ -97,8 +99,10 @@ for class_ in metatrain_data: # 200 * 18 = 3600
 
 # 加载目标域数据
 test_data = os.path.join(data_path,target_data)
-test_label = os.path.join(data_path,target_data_gt)
-Data_Band_Scaler, GroundTruth = utils.load_data(test_data, test_label)
+test_label_train = os.path.join(data_path,target_data_gt_train)
+test_label_test = os.path.join(data_path,target_data_gt_test)
+# Data_Band_Scaler, GroundTruth = utils.load_data(test_data, test_label)
+Data_Band_Scaler, GroundTruth_train,  GroundTruth_test = utils.load_data_houston(test_data, test_label_train, test_label_test)
 
 # 损失初始化
 crossEntropy = nn.CrossEntropyLoss().to(GPU)
@@ -120,11 +124,10 @@ best_G, best_RandPerm, best_Row, best_Column, best_nTrain = None,None,None,None,
 
 # seeds = [1211, 1212, 1213, 1214, 1215, 1216, 1217, 1218, 1219, 1220,
 #          1221, 1222, 1223, 1224, 1225, 1226, 1227, 1228, 1229, 1230,
-#          1231, 1232, 1233, 1234, 1235, 1236, 1237, 1238, 1239, 1240]
+#          1231, 1232, 1233, 1234, 1235, 1236, 1237, 1238, 1239, 1240,
+#          1331, 1332, 1333, 1334, 1335, 1336, 1337, 1338, 1339, 1340]
 
-seeds = [1236, 1237, 1226, 1227, 1211, 1212, 1216, 1240, 1222, 1223] # IP_final
-
-# seeds = [1214, 1216, 1220, 1223, 1228, 1237, 1240, 1332, 1334, 1337] # SA, top 10 from 40  OA=93.11
+seeds = [1222, 1230, 1333, 1337, 1339, 1231, 1233, 1234, 1212, 1213]
 
 # 日志设置
 experimentSetting = '{}way_{}shot_{}'.format(TAR_CLASS_NUM, TAR_LSAMPLE_NUM_PER_CLASS, target_data.split('/')[0])
@@ -141,32 +144,20 @@ for iDataSet in range(nDataSet) :
 
     # np.random.seed(seeds[iDataSet]) # 【严重错误】师姐留下的坑：外层固定了所有，内层只固定了numpy，导致其他的是按随机序列的。 这样就没法挑种子了，外层固定了np之外的东西，而内层没有重新赋值，则调换种子顺序会出问题。这样只能保证相同顺序执行结果一样。
 
-    utils.same_seeds(seeds[iDataSet]) # 每次都固定所有
+    utils.same_seeds(seeds[iDataSet])  # 【正确】每次都固定所有
 
     # 源域每类200个数据普通分类的数据加载器 (3600,128,9,9) (3600,)
     # source_data_loader = get_metatrain_Labeled_data_loader(src_metatrain_data, src_metatrain_label)
 
     #  load target domain data for training and testing
-    # train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain = get_target_dataset(Data_Band_Scaler=Data_Band_Scaler,
-    #                                                                                                           GroundTruth=GroundTruth,
-    #                                                                                                           class_num=TAR_CLASS_NUM,
-    #                                                                                                           tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-    #                                                                                                           shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
-    #                                                                                                           patch_size=patch_size)
-    #  load target domain data for training and testing
-    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain, target_aug_data_ssl, target_aug_label_ssl = get_target_dataset(
+    train_loader, test_loader, target_da_metatrain_data, G, RandPerm, Row, Column, nTrain = get_target_dataset_houston(
         Data_Band_Scaler=Data_Band_Scaler,
-        GroundTruth=GroundTruth,
+        GroundTruth_train=GroundTruth_train,
+        GroundTruth_test=GroundTruth_test,
         class_num=TAR_CLASS_NUM,
         tar_lsample_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
         shot_num_per_class=TAR_LSAMPLE_NUM_PER_CLASS,
         patch_size=patch_size)
-
-
-    # target SSL data
-    target_ssl_dataset = tagetSSLDataset(target_aug_data_ssl)
-    target_ssl_dataloader = torch.utils.data.DataLoader(target_ssl_dataset, batch_size=128, shuffle=True, drop_last=True)
-
     num_supports, num_samples, query_edge_mask, evaluation_mask = utils.preprocess(TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, QUERY_NUM_PER_CLASS, batch_task, GPU)
 
     '''
@@ -181,19 +172,15 @@ for iDataSet in range(nDataSet) :
     mapping_src = Mapping(SRC_INPUT_DIMENSION, N_DIMENSION).to(GPU)
     mapping_tar = Mapping(TAR_INPUT_DIMENSION, N_DIMENSION).to(GPU)
     encoder = Encoder(n_dimension=N_DIMENSION, patch_size=patch_size, emb_size=emb_size).to(GPU)
-    cl_tar = SimSiam(dim=emb_size)
 
     # 优化器初始化
     # mapping_src_optim = torch.optim.Adam(mapping_src.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     # mapping_tar_optim = torch.optim.Adam(mapping_tar.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     # encoder_optim = torch.optim.Adam(encoder.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
-    model_optim = torch.optim.SGD([{'params': mapping_src.parameters()},
-                                   {'params': mapping_tar.parameters()},
-                                   {'params': encoder.parameters()},
-                                   {'params': cl_tar.parameters()}],
-                                  lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
-
+    mapping_src_optim = torch.optim.SGD(mapping_src.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
+    mapping_tar_optim = torch.optim.SGD(mapping_tar.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
+    encoder_optim = torch.optim.SGD(encoder.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
 
     # 学习率衰减：每隔100个episode调整一下学习率，共调整100次
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(feature_encoder_optim, T_max=100, eta_min=0.001, last_epoch=-1)
@@ -202,19 +189,16 @@ for iDataSet in range(nDataSet) :
     mapping_src.apply(utils.weights_init)
     mapping_tar.apply(utils.weights_init)
     encoder.apply(utils.weights_init)
-    cl_tar.apply(utils.weights_init)
 
     # why? RuntimeError: Tensor for 'out' is on CPU, Tensor for argument #1 'self' is on CPU, but expected them to be on GPU (while checking arguments for addmm)
     mapping_src.to(GPU)
     mapping_tar.to(GPU)
     encoder.to(GPU)
-    cl_tar.to(GPU)
 
     # 训练模式
     mapping_src.train()
     mapping_tar.train()
     encoder.train()
-    cl_tar.train()
 
     logger.info("Training...")
     last_accuracy = 0.0
@@ -226,9 +210,11 @@ for iDataSet in range(nDataSet) :
     train_start = time.time()
     writer = SummaryWriter()
 
-    target_ssl_iter = iter(target_ssl_dataloader)
+    # source_iter = iter(source_data_loader)
 
     for episode in range(EPISODE) :
+        # print("episode = ", episode)
+        # Source and Target Few-Shot
         task_src = Task(metatrain_data, TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, QUERY_NUM_PER_CLASS)
         support_dataloader_src = get_HBKC_data_loader(task_src, num_per_class=SHOT_NUM_PER_CLASS, split="train", shuffle=False)
         query_dataloader_src = get_HBKC_data_loader(task_src, num_per_class=QUERY_NUM_PER_CLASS, split="test", shuffle=False)
@@ -253,6 +239,7 @@ for iDataSet in range(nDataSet) :
         if SHOT_NUM_PER_CLASS > 1:
             support_proto_src = support_features_src.reshape(TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, -1).mean(dim=1)  # (9, 160)
             support_proto_tar = support_features_tar.reshape(TAR_CLASS_NUM, SHOT_NUM_PER_CLASS, -1).mean(dim=1)  # (9, 160)
+
         else:
             support_proto_src = support_features_src
             support_proto_tar = support_features_tar
@@ -265,32 +252,10 @@ for iDataSet in range(nDataSet) :
 
         f_loss = f_loss_src + f_loss_tar
 
-        # loss = f_loss
+        loss = f_loss
 
-        # CL_tar
-        # episode batchsize 过大
-        # data_cl_tar = torch.cat((support_tar, query_tar), dim=0) # (num_classes * num_supports + num_classes * num_querys, 128, 7, 7)
-        # num_data_cl_tar = len(data_cl_tar) # num_classes * num_supports + num_classes * num_querys
 
-        # 目标域自监督：从目标域有标记数据的增强集合中取值。
-        try:
-            target_ssl_data = target_ssl_iter.next() # (batchsize, channels, 7, 7)
-        except Exception as err:
-            target_ssl_iter = iter(target_ssl_dataloader)
-            target_ssl_data = target_ssl_iter.next()
-
-        augment1 = torch.FloatTensor(data_augment.Crop_and_resize_batch(target_ssl_data.data.cpu(), patch_size // 2)) # 可以再加个翻转啥的
-        augment2 = torch.FloatTensor(data_augment.Crop_and_resize_batch(target_ssl_data.data.cpu(), patch_size // 2))
-        augment = torch.cat((augment1, augment2), dim=0)
-        features_augment = encoder(mapping_tar(augment.to(GPU)))
-        p1, p2, z1, z2 = cl_tar(features_augment[:len(target_ssl_data), :], features_augment[len(target_ssl_data):, :])
-        cl_loss_tar = (torch.norm(p1 - z2, dim=1).mean() + torch.norm(p2 - z1, dim=1).mean()) * 0.5 # 默认2范数
-        # 错啦，这个是两组向量，所有两两组合的相似度。
-        # cl_loss_tar = -(utils.euclidean_metric(p1, z2).mean() + utils.euclidean_metric(p2, z1).mean()) * 0.5
-
-        loss = f_loss + 1.0 * cl_loss_tar
-
-        # 原始SimSiam  高斯噪声表现贼差，辐射噪声就还好！
+        # SS_CL
         # train_cl = metatrain_data_loader_src.__iter__().next()  # (256, 128, 9, 9)
         # augment1_train = torch.FloatTensor(data_augment.gaussian_noise(data_augment.Crop_and_resize_batch(train_cl.data.cpu())))
         # augment2_train = torch.FloatTensor(data_augment.gaussian_noise(data_augment.Crop_and_resize_batch(train_cl.data.cpu())))
@@ -301,9 +266,23 @@ for iDataSet in range(nDataSet) :
         # loss = f_loss + lambda_1 * cl_loss
 
         # Update parameters
-        model_optim.zero_grad()
+        mapping_src.zero_grad()
+        mapping_tar.zero_grad()
+        encoder.zero_grad()
+
         loss.backward()
-        model_optim.step()
+
+        mapping_src_optim.step()
+        mapping_tar_optim.step()
+        encoder_optim.step()
+
+        # total_hit_c += torch.sum(torch.argmax(logits_c, dim=1).cpu() == src_label_c).item()
+        # total_num_c += src_label_c.shape[0]
+        # acc_c = total_hit_c / total_num_c
+        #
+        # total_hit_f += torch.sum(torch.argmax(logits_f, dim=1).cpu() == src_label_f).item()
+        # total_num_f += src_label_f.shape[0]
+        # acc_f = total_hit_f / total_num_f
 
         total_hit_src += torch.sum(torch.argmax(logits_src, dim=1).cpu() == query_label_src).item()
         total_num_src += query_src.shape[0]
@@ -315,18 +294,19 @@ for iDataSet in range(nDataSet) :
 
         if (episode + 1) % 100 == 0:
             # tensor.item() 把张量转换为python标准数字返回，仅适用只有一个元素的张量。
-            logger.info('episode: {:>3d}, f_loss: {:6.4f}, cl_loss_tar: {:6.4f}, loss: {:6.4f}, acc_src: {:6.4f}, acc_tar: {:6.4f}'.format(
+            logger.info('episode: {:>3d}, f_loss: {:6.4f}, loss: {:6.4f}, acc_src: {:6.4f}, acc_tar: {:6.4f}'.format(
                 episode + 1,
                 f_loss.item(),
-                cl_loss_tar.item(),
+                # text_align_loss.item(),
                 loss.item(),
                 acc_src,
                 acc_tar))
 
             # writer.add_scalar('Loss/loss_c', loss_c.item(), episode + 1)  # 名字 y x
             writer.add_scalar('Loss/f_loss', f_loss.item(), episode + 1)
-            writer.add_scalar('Loss/cl_loss_tar', cl_loss_tar.item(), episode + 1)
+            # writer.add_scalar('Loss/text_align_loss', text_align_loss.item(), episode + 1)
             writer.add_scalar('Loss/loss', loss.item(), episode + 1)
+
             writer.add_scalar('Acc/acc_src', acc_src, episode + 1)
             writer.add_scalar('Acc/acc_tar', acc_tar, episode + 1)
 
@@ -348,6 +328,7 @@ for iDataSet in range(nDataSet) :
                 labels = np.array([], dtype=np.int64)
 
                 train_datas, train_labels = train_loader.__iter__().next()
+
                 train_features = encoder(mapping_tar(Variable(train_datas).to(GPU)))
 
                 max_value = train_features.max()
@@ -403,7 +384,7 @@ for iDataSet in range(nDataSet) :
     logger.info("accuracy list: {}".format(acc))
     logger.info('***********************************************************************************')
     for i in range(len(best_predict_all)):
-        best_G[best_Row[best_RandPerm[best_nTrain + i]]][best_Column[best_RandPerm[best_nTrain + i]]] = best_predict_all[i] + 1
+        best_G[best_Row[best_RandPerm[i]]][best_Column[best_RandPerm[i]]] = best_predict_all[i] + 1
 
 OAMean = np.mean(acc)
 OAStd = np.std(acc)
